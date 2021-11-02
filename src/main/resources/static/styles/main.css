@@ -1,0 +1,8 @@
+.width-md {
+    width: 24rem;
+}
+
+div.row {
+    position: relative;
+    top: 5rem;
+}
