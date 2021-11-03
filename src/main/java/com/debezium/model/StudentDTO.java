@@ -15,6 +15,9 @@ import lombok.*;
 @Setter
 @ToString
 public class StudentDTO {
+    private Long id;
     private String operation;
-    private Student student;
+    private String name;
+    private String email;
+    private String phoneNumber;
 }

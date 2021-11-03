@@ -1,8 +1,8 @@
 package com.debezium.listener;
 
-import com.debezium.controller.WebSocketHandlers;
 import com.debezium.model.Student;
 import com.debezium.model.StudentDTO;
+import com.debezium.redis.RedisPublisher;
 import com.debezium.utils.Operation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.debezium.config.Configuration;
@@ -12,6 +12,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -39,6 +40,9 @@ public class StudentTableListener {
      * Debezium engine
      * */
     private final EmbeddedEngine engine;
+
+    @Autowired
+    RedisPublisher publisher;
 
     public StudentTableListener(Configuration connector) {
         this.engine = EmbeddedEngine
@@ -84,9 +88,14 @@ public class StudentTableListener {
             if (operation != Operation.READ) {
                 Map<String, Object> objects;
                 String record = AFTER;
+                StudentDTO payload = new StudentDTO();
 
-                if (operation == Operation.DELETE)
+                if (operation == Operation.DELETE) {
                     record = BEFORE;
+                    payload.setOperation("d");
+                } else {
+                    payload.setOperation("u");
+                }
 
                 //  Build map
                 Struct struct = (Struct) value.get(record);
@@ -98,11 +107,17 @@ public class StudentTableListener {
 
                 Student student = toStudent(objects);
 
-                StudentDTO studentDTO = new StudentDTO(
-                        "u", student
-                );
-                log.info(studentDTO.toString());
-                log.info("Student added: {}", student.getName());
+                //  Send update only when student is enrolled
+                if (student.isEnrolled()) {
+                    payload.setId(student.getId());
+                    payload.setName(student.getName());
+                    payload.setEmail(student.getEmail());
+                    payload.setPhoneNumber(student.getPhoneNumber());
+
+                    log.info(payload.toString());
+                    log.info("Student added: {}", student.getName());
+                    publisher.publish(payload);
+                }
             }
         }
     }
